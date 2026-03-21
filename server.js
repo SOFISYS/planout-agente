@@ -62,21 +62,14 @@ async function buscarContexto(texto) {
 
 // Endpoint principal del chat
 app.post("/api/chat", async (req, res) => {
-  const { messages } = req.body;
+  const { message, historial } = req.body;
 
-  if (!messages || !Array.isArray(messages)) {
-    return res.status(400).json({ error: "Se requiere un array de messages" });
+  if (!message) {
+    return res.status(400).json({ error: "Se requiere el campo message" });
   }
 
   try {
-    // El último mensaje del usuario es el que usamos para buscar contexto
-    const ultimoMensajeUsuario = [...messages]
-      .reverse()
-      .find((m) => m.role === "user");
-
-    const contexto = ultimoMensajeUsuario
-      ? await buscarContexto(ultimoMensajeUsuario.content)
-      : "";
+    const contexto = await buscarContexto(message);
 
     const systemPrompt = `Sos el asistente virtual de Plan Out para productores de eventos. Estás para ayudarlos a operar la plataforma de gestión de entradas.
 Escribís como un argentino: sin signos de apertura (¡ ¿), con voseo natural, tono directo y cercano pero profesional. Sin emojis.
@@ -87,6 +80,11 @@ Si no tenés certeza sobre algo, no inventás. Le decís que lo vas a derivar co
 INFORMACIÓN DISPONIBLE:
 ${contexto || "No se encontró información específica para esta consulta."}`;
 
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...(Array.isArray(historial) ? historial : []),
+    ];
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -96,12 +94,17 @@ ${contexto || "No se encontró información específica para esta consulta."}`;
       body: JSON.stringify({
         model: "gpt-4o",
         max_tokens: 300,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
+        messages,
       }),
     });
 
     const data = await response.json();
-    res.json(data);
+
+    if (!data.choices?.[0]) {
+      throw new Error(data.error?.message || "Sin respuesta de OpenAI");
+    }
+
+    res.json({ respuesta: data.choices[0].message.content });
   } catch (err) {
     console.error("Error en /api/chat:", err.message);
     res.status(500).json({ error: err.message });
@@ -109,6 +112,10 @@ ${contexto || "No se encontró información específica para esta consulta."}`;
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
