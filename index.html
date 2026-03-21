@@ -417,18 +417,17 @@ async function enviar() {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: historial })
+      body: JSON.stringify({ message: texto, historial })
     });
 
     const data = await response.json();
     quitarTyping();
 
-    if (data.choices && data.choices[0]) {
-      const respuesta = data.choices[0].message.content;
-      historial.push({ role: "assistant", content: respuesta });
-      agregarMensaje("assistant", respuesta);
+    if (data.respuesta) {
+      historial.push({ role: "assistant", content: data.respuesta });
+      agregarMensaje("assistant", data.respuesta);
     } else {
-      throw new Error(data.error?.message || "Sin respuesta");
+      throw new Error(data.error || "Sin respuesta");
     }
 
   } catch (err) {
