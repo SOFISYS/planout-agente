@@ -19,14 +19,14 @@ async function generarEmbedding(texto) {
 async function buscarContexto(texto) {
   try {
     const embedding = await generarEmbedding(texto);
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/match_documentos`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/buscar_documentos`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
-      body: JSON.stringify({ query_embedding: embedding, match_threshold: 0.5, match_count: 5 }),
+      body: JSON.stringify({ query_embedding: embedding, match_count: 5 }),
     });
     const docs = await res.json();
     if (!Array.isArray(docs) || docs.length === 0) return "";
